@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>青埔影音教學平台 | 權限控管版</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
+    .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+  <div id="loginView" class="fixed inset-0 bg-slate-900 flex items-center justify-center p-4 z-50">
+    <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-sm border border-slate-100">
+      <div class="text-center mb-10">
+        <div class="bg-blue-600 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 text-white shadow-xl">
+          <i data-lucide="lock" class="w-10 h-10"></i>
+        </div>
+        <h1 class="text-2xl font-black text-slate-800 tracking-tight">QINGPU LOGIN</h1>
+        <p class="text-slate-400 text-sm mt-2 font-medium">請輸入身分憑證以進入平台</p>
+      </div>
+      <div class="space-y-4">
+        <input id="u" type="text" placeholder="帳號" class="w-full border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-500 transition-all font-bold">
+        <input id="p" type="password" placeholder="密碼" class="w-full border-2 border-slate-100 p-4 rounded-2xl outline-none focus:border-blue-500 transition-all font-bold">
+        <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-blue-700 transition-all active:scale-95">確認登入</button>
+      </div>
+      <p id="errMsg" class="text-red-500 text-center mt-6 text-sm hidden font-bold">⚠️ 帳號或密碼錯誤</p>
+    </div>
+  </div>
+
+  <div id="appView" class="hidden">
+    <nav class="glass border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+      <div class="flex items-center gap-2 font-black text-xl text-blue-600 italic">
+        <i data-lucide="play-circle" class="fill-current"></i> QINGPU.EDU
+      </div>
+      <div class="flex items-center gap-4">
+        <span id="userBadge" class="text-xs font-black px-3 py-1 rounded-full bg-slate-100 text-slate-500 uppercase"></span>
+        <button onclick="location.reload()" class="text-slate-400 hover:text-red-500 font-bold transition-colors">
+          <i data-lucide="log-out" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto p-6 pb-24">
+      <section id="adminPanel" class="hidden bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200 mb-10">
+        <h2 class="font-black text-xl text-slate-700 mb-6 flex items-center gap-2">
+          <i data-lucide="plus-circle" class="text-green-500"></i> 發佈課程影片
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input id="cat" type="text" placeholder="分類 (例如：707 班)" class="w-full border-2 border-slate-50 bg-slate-50 p-4 rounded-xl outline-none focus:border-blue-500 font-bold">
+          <input id="vName" type="text" placeholder="影片名稱" class="w-full border-2 border-slate-50 bg-slate-50 p-4 rounded-xl outline-none focus:border-blue-500 font-bold">
+          <div class="md:col-span-2">
+            <input id="vUrl" type="text" placeholder="影片連結 (URL)" class="w-full border-2 border-slate-50 bg-slate-50 p-4 rounded-xl outline-none focus:border-blue-500 font-bold">
+          </div>
+          <button onclick="saveCourse()" id="btnSave" class="md:col-span-2 bg-slate-800 text-white py-4 rounded-xl font-black hover:bg-black transition-all">儲存影片</button>
+        </div>
+      </section>
+
+      <div id="courseList" class="space-y-6">
+        <p class="text-center text-slate-400 py-10">同步資料中...</p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://cadqyiezwqdhrinulzse.supabase.co'; 
+    const SUPABASE_KEY = 'sb_publishable_8j_PMspCDypszSJc4M8icg_Qf-3YO0U'; 
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentUserRole = null; // 'teacher' or 'student'
+
+    // 1. 登入邏輯
+    function handleLogin() {
+      const u = document.getElementById('u').value.trim();
+      const p = document.getElementById('p').value.trim();
+      const err = document.getElementById('errMsg');
+
+      // 教師判斷
+      if (u === 'admin' && p === 'Qingpu_2026!Gate#Pass') {
+        currentUserRole = 'teacher';
+        enterApp('教師模式');
+      } 
+      // 學生判斷
+      else if (u === '707' && p === '707') {
+        currentUserRole = 'student';
+        enterApp('學生模式');
+      } 
+      else {
+        err.classList.remove('hidden');
+        setTimeout(() => err.classList.add('hidden'), 3000);
+      }
+    }
+
+    function enterApp(label) {
+      document.getElementById('loginView').classList.add('hidden');
+      document.getElementById('appView').classList.remove('hidden');
+      document.getElementById('userBadge').innerText = label;
+      
+      // 如果是教師，顯示管理面板
+      if (currentUserRole === 'teacher') {
+        document.getElementById('adminPanel').classList.remove('hidden');
+      }
+      fetchCourses();
+    }
+
+    // 2. 儲存影片 (教師專用)
+    async function saveCourse() {
+      const cat = document.getElementById('cat').value.trim();
+      const name = document.getElementById('vName').value.trim();
+      const url = document.getElementById('vUrl').value.trim();
+      if (!cat || !name || !url) return alert('請填寫完整資訊');
+
+      const { error } = await _supabase.from('courses').insert([{ category: cat, name: name, url: url }]);
+      if (error) alert('寫入失敗: ' + error.message);
+      else {
+        document.getElementById('vName').value = '';
+        document.getElementById('vUrl').value = '';
+        fetchCourses();
+      }
+    }
+
+    // 3. 抓取資料
+    async function fetchCourses() {
+      const { data, error } = await _supabase.from('courses').select('*').order('created_at', { ascending: false });
+      const container = document.getElementById('courseList');
+      if (error) return (container.innerHTML = '連線出錯');
+
+      const groups = data.reduce((acc, obj) => {
+        (acc[obj.category] = acc[obj.category] || []).push(obj);
+        return acc;
+      }, {});
+
+      let html = '';
+      for (const cat in groups) {
+        html += `
+          <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="px-6 py-4 bg-slate-50 border-b font-black text-slate-500 text-sm tracking-widest uppercase">
+              <i data-lucide="folder" class="inline w-4 h-4 mr-1"></i> ${cat}
+            </div>
+            <div class="divide-y divide-slate-50">
+              ${groups[cat].map(item => `
+                <div class="px-6 py-5 flex justify-between items-center hover:bg-blue-50/30 transition">
+                  <span class="font-bold text-slate-700">${item.name}</span>
+                  <div class="flex items-center gap-3">
+                    <a href="${item.url}" target="_blank" class="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-black flex items-center gap-2">
+                      播放 <i data-lucide="play" class="w-3 h-3 fill-current"></i>
+                    </a>
+                    ${currentUserRole === 'teacher' ? `
+                      <button onclick="deleteCourse('${item.id}')" class="text-slate-300 hover:text-red-500 transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      </button>
+                    ` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+      container.innerHTML = html || '<p class="text-center text-slate-300">目前尚無課程影片</p>';
+      lucide.createIcons();
+    }
+
+    // 4. 刪除影片 (教師專用)
+    async function deleteCourse(id) {
+      if (!confirm('確定刪除？')) return;
+      await _supabase.from('courses').delete().eq('id', id);
+      fetchCourses();
+    }
+
+    lucide.createIcons();
+  </script>
+</body>
+</html>
